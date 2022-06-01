@@ -1,0 +1,4 @@
+from robot import drive
+
+if __name__ == '__main__':
+    drive.main()

@@ -1,0 +1,4 @@
+from robot import control_with_joystick
+
+if __name__ == '__main__':
+    control_with_joystick.main()

@@ -1,0 +1,6 @@
+numpy~=1.19.2
+AeroSandbox~=3.5.2
+casadi~=3.5.5
+rospy~=1.15.9
+tf~=1.13.2
+inputs~=0.5
