@@ -1,4 +1,5 @@
 import math
+import time
 
 import numpy as np
 import rospy
@@ -61,10 +62,10 @@ def __main():
     p[index.p.objective.x] = 10
     p[index.p.objective.y] = 0
     p[index.p.objective.theta] = 3
-    p[index.p.weight.position] = 5
-    p[index.p.weight.angle] = 1
+    p[index.p.weight.position] = 10
+    p[index.p.weight.angle] = 2
     p[index.p.weight.energy] = 0
-    p[index.p.weight.slack] = 100
+    p[index.p.weight.slack] = 0
     p[index.p.weight.strafe] = 0
     p[index.p.weight.use_begin] = 1
 
@@ -109,8 +110,10 @@ def __main():
         if exitflag == 1:
             status.level = 0
         elif exitflag < 0:
+            rospy.logerr(f"Did not converge:  {exitflag}")
             status.level = 2
         else:
+            rospy.logerr(f"Did not converge:  {exitflag}")
             status.level = 1
 
         for ss in range(model.N - 2):

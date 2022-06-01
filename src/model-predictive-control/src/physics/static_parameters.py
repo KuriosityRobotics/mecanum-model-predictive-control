@@ -17,10 +17,9 @@ r = 50 * MM_TO_M
 m = 12.24  # drivetrain
 Iz = 333.151959 * G_TO_KG
 Iw = 0.3712 * G_TO_KG  # drivetrain
-Km = 1.23577 / 11.5  # 1.23577 Newton-metres per amp
-Rm = 12 / 11.5
-N = 19.2  # 1 / reduciton ratio
-nu = .6  # pinion module??  idfk
+
+G = 9.807
+friction_coeff = .6
 
 # friction
 a = np.array([.0067, .0291, .0067, .0144]).reshape(4, 1)

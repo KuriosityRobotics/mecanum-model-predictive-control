@@ -34,10 +34,7 @@ class Motor:
 
     # TODO: make this simpler and more differentiable
     def friction(self, speed):
-        return sign(speed) \
-               * (self.coulomb_friction + (self.static_friction - self.coulomb_friction) *
-                  exp(-pow(abs(speed / self.stribeck_velocity), self.stribeck_power))
-                  + self.viscous_friction * abs(speed))
+        return sign(speed) * speed * a + sign(speed) * b
 
     def armature_current(self, voltage, speed):
         return (voltage - self.backemf(speed)) / self.armature_resistance
@@ -45,7 +42,7 @@ class Motor:
     def torque(self, voltage, speed):
         torque = self.armature_current(voltage, speed) * self.torque_constant
         friction = self.friction(speed)
-        return torque #- friction # DO NOT UNCOMMENT THIS FUCKS SHIT UP
+        return torque - friction # DO NOT UNCOMMENT THIS FUCKS SHIT UP
 
 
 orbital_20_gearmotor = Motor(

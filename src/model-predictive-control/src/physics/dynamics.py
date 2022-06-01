@@ -1,4 +1,5 @@
 from aerosandbox.numpy import *
+from aerosandbox.numpy.linalg import norm
 
 from .motor import orbital_20_gearmotor
 from .static_parameters import *

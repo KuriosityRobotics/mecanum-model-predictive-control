@@ -17,7 +17,7 @@ def load_solver():
     return Solver.from_directory("DynamicSolver")
 
 
-time_lookup = 1
+time_lookup = 2
 frequency = 10
 nNodes = 6
 
@@ -59,18 +59,18 @@ codeoptions.nlp.integrator.Ts = 1 / frequency
 codeoptions.nlp.integrator.nodes = nNodes
 
 codeoptions.maxit = 200
-codeoptions.printlevel = 2
+codeoptions.printlevel = 1
 codeoptions.optlevel = 2  # 0: no optimization, 1: optimize for size, 2: optimize for speed, 3: optimize for size & speed
 
 codeoptions.overwrite = 1
 
-# codeoptions.solvemethod = 'PDIP_NLP'
+codeoptions.solvemethod = 'PDIP_NLP'
 # codeoptions.sqp_nlp.rti = 1
 # codeoptions.sqp_nlp.maxSQPit = 10
 # codeoptions.nlp.hessian_approximation = 'gauss-newton'
 
 codeoptions.noVariableElimination = 1
 
-
+TODO: If no convergence, try to find the best match to the current state from the previous solution and use that
 def generate_solver():
     return model.generate_solver(codeoptions)
