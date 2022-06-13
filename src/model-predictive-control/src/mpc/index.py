@@ -40,7 +40,6 @@ for k, v in labels.items():
         n = n + 1
     setattr(p, k, indices)
 
-
 class _Index:
     u = [0, 1, 2, 3]
     slack = 4

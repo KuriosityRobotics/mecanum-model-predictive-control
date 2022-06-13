@@ -157,7 +157,7 @@ include_directories(
 ## Install ##
 ############
 
-catkin_install_python(PROGRAMS scripts/control_with_joystick scripts/robot scripts/xbox_gamepad DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+catkin_install_python(PROGRAMS scripts/control_with_joystick scripts/robot scripts/xbox_gamepad scripts/mpc_control DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 #############
 ## Testing ##

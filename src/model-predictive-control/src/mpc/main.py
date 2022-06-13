@@ -5,11 +5,13 @@ import numpy as np
 import rospy
 from diagnostic_msgs.msg import DiagnosticStatus, DiagnosticArray, KeyValue
 from geometry_msgs.msg import Pose, Point, Quaternion, PoseStamped
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Path
 from numpy import ndarray
-from std_msgs.msg import Float64, Float64MultiArray, Header
+from sensor_msgs.msg import Joy
+from std_msgs.msg import Float64, Float64MultiArray, Header, Empty
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
+from mpc.objectives import find_error
 from . import solvers
 
 from .solvers import *
@@ -38,18 +40,19 @@ def __main():
 
     rospy.Subscriber("odom", Odometry, callback=set_state)
 
-    objective = rospy.Publisher("objective", Float64MultiArray, queue_size=10)
+    error = rospy.Publisher("error", Float64MultiArray, queue_size=10)
     objective_sum = rospy.Publisher("objective_sum", Float64, queue_size=10)
 
     m1 = rospy.Publisher("fl", Float64, queue_size=1)
     m2 = rospy.Publisher("fr", Float64, queue_size=1)
     m3 = rospy.Publisher("bl", Float64, queue_size=1)
     m4 = rospy.Publisher("br", Float64, queue_size=1)
+    path = rospy.Publisher("path", Path, queue_size=1)
 
     solve_status = rospy.Publisher("diagnostics", DiagnosticArray, queue_size=10)
 
     np.set_printoptions(precision=3, suppress=True)
-    solver = solvers.generate_solver()
+    solver = solvers.load_solver()
 
     # Set initial condition
     xinit = np.transpose(np.array([0, 5, 0, 0.1, 0.1, 0]))
@@ -59,15 +62,15 @@ def __main():
     x0 = np.transpose(np.tile(x0i, (1, model.N)))
 
     p = np.zeros(model.npar)
-    p[index.p.objective.x] = 10
+    p[index.p.objective.x] = 0
     p[index.p.objective.y] = 0
-    p[index.p.objective.theta] = 3
-    p[index.p.weight.position] = 10
-    p[index.p.weight.angle] = 2
-    p[index.p.weight.energy] = 0
+    p[index.p.objective.theta] = 0
+    p[index.p.weight.position] = 20
+    p[index.p.weight.angle] = 5
+    p[index.p.weight.energy] = .00001
     p[index.p.weight.slack] = 0
     p[index.p.weight.strafe] = 0
-    p[index.p.weight.use_begin] = 1
+    p[index.p.weight.use_begin] = 0
 
     def set_target_pose(target: PoseStamped):
         p[index.p.objective.x] = target.pose.position.x
@@ -79,14 +82,16 @@ def __main():
                "xinit": xinit,
                "all_parameters": np.transpose(np.tile(p, (1, model.N)))}
 
+    do_mpc = False
+    def mpc_toggle(_):
+        nonlocal do_mpc
+        do_mpc = not do_mpc
+    rospy.Subscriber("mpc_toggle", Empty, queue_size=10, callback=mpc_toggle)
+
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         problem["x0"][:, index.fromz] = np.transpose(x.reshape((-1,)))
         problem["all_parameters"] = np.transpose(np.tile(p, (1, model.N)))
-        # for ss in range(model.N - 2):
-        #     if assert_valid(solver.dynamics, problem["x0"][0], p, ss, [], crash_if_wrong=False) or assert_valid(solver.objective, problem["x0"][0], p, ss,
-        #                                                                            [], crash_if_wrong=True) or assert_valid(solver.ineq, problem["x0"][0], p, ss, [], crash_if_wrong=True):
-        #         break
 
         problem["xinit"] = np.transpose(x.reshape((-1,)))
         output, exitflag, info = solver.solve(problem)
@@ -94,10 +99,23 @@ def __main():
         z = np.array([0, 0, 0, 0, 0, *x.reshape((-1,))])
         assert problem["x0"].shape == (model.N, model.nvar), f"Expected x0 to have shape {[model.N, model.nvar]}, but it had {problem['x0'].shape}."
 
-        score = objective_dynamic_n(z, p)
-        assert not (any(np.isnan(score)) or any(np.isinf(score)))
-        objective.publish(Float64MultiArray(data=objective_sum))
-        objective_sum.publish(sum(score))
+        score = objective_dynamic_n(output["x01"], p)
+        assert not ((np.isnan(score)) or (np.isinf(score)))
+        # objective.publish(Floa
+        # t64MultiArray(data=score))
+        objective_sum.publish(score)
+
+        err = find_error(output["x01"], p)
+        err[2] = math.degrees(err[2])
+        error.publish(data=err)
+
+        poses = [PoseStamped(Header(None, None, "map"), Pose(Point(v[index.qr[0]], v[index.qr[1]], 0), Quaternion(*quaternion_from_euler(0, 0, v[index.qr[2]])))) for k, v in output.items() if k[0] == 'x']
+        curr_path = Path(Header(None, None, "map"), poses)
+        path.publish(curr_path)
+
+        if not do_mpc:
+            rate.sleep()
+            continue
 
         [fl, fr, bl, br, *_] = output["x01"]
         m1.publish(fl)
@@ -111,20 +129,12 @@ def __main():
             status.level = 0
         elif exitflag < 0:
             rospy.logerr(f"Did not converge:  {exitflag}")
+            print("objective ", solver.objective(z, p=p))
             status.level = 2
         else:
             rospy.logerr(f"Did not converge:  {exitflag}")
             status.level = 1
 
-        for ss in range(model.N - 2):
-            if assert_valid(solver.dynamics, z, p, ss, status_arr) or assert_valid(solver.objective, z, p, ss,
-                                                                                   status_arr) or assert_valid(solver.ineq, z, p, ss, status_arr):
-                break
-
-        for ss in range(model.N - 2):
-            if assert_valid(solver.dynamics, problem["x0"][0], p, ss, status_arr) or assert_valid(solver.objective, problem["x0"][0], p, ss,
-                                                                                   status_arr) or assert_valid(solver.ineq, problem["x0"][0], p, ss, status_arr):
-                break
         status.name = "Solver output"
         status.message = f"{exitflag:3}:  FL = {fl:.2f} V, FR = {fr:.2f}, BL = {bl:.2f}, BR = {br:.2f}"
         status.hardware_id = "MPC"
@@ -152,11 +162,11 @@ def assert_valid(function, z, p, s, status_arr, crash_if_wrong=CRASH_IF_WRONG):
 
     a_res = np.isnan(a).any() or np.isinf(b).any()
     if a_res:
-        # rospy.logerr(f"Nan or inf in {function}:  {a.reshape((-1,))} at state {s}")
+        rospy.logerr(f"Nan or inf in {function}:  {a.reshape((-1,))} at state {s}")
         status_arr.append(DiagnosticStatus(1, f"NaN/inf in {function.__name__}", f"Result 1. {a}", "MPC", err_array()))
 
     if b_res := np.isnan(b).any() or np.isinf(b).any():
-        # rospy.logerr(f"Nan or inf in {function}:  {b.reshape((-1,))} at stage {s}")
+        rospy.logerr(f"Nan or inf in {function}:  {b.reshape((-1,))} at stage {s}")
         status_arr.append(DiagnosticStatus(1, f"NaN/inf in {function.__name__}", f"Result 2. {b}", "MPC", err_array()))
 
     if not a_res and not b_res:

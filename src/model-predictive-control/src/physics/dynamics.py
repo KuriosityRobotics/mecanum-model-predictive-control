@@ -1,9 +1,9 @@
 from aerosandbox.numpy import *
-from aerosandbox.numpy.linalg import norm
 
 from .motor import orbital_20_gearmotor
 from .static_parameters import *
 
+import numpy as np
 
 def robot_acceleration(qr, qr_dot, motor_voltages):
     heading = qr[2]
