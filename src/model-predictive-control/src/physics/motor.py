@@ -22,13 +22,10 @@ class Motor:
         self.armature_resistance = self.nominal_voltage / stall_current
         self.motor_constant = (self.nominal_voltage - self.armature_resistance * free_current) / (free_speed * self.armature_resistance)
 
-    def friction(self, speed):
-        return .35 * sign(speed)
-
     def torque(self, voltage, speed):
         return (voltage * self.module * self.reduction * self.motor_constant / self.armature_resistance) - (
             speed * self.module * self.reduction**2 * self.motor_constant**2 / self.armature_resistance
-        ) - self.friction(speed)
+        )
 
     def power(self, voltage, speed):
         return voltage * (voltage - self.reduction * self.motor_constant * speed) / self.armature_resistance
